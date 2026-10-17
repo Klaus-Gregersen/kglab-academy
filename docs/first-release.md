@@ -19,6 +19,10 @@ The first release publishes the application source. It does not expose a public 
 
 ## Publication and hosting gates
 
-The initial source push must complete [Academy CI](https://github.com/Klaus-Gregersen/kglab-academy/actions/workflows/checks.yml), including the container build/startup checks. Then activate the prepared policy requiring pull requests and passing Academy checks on main, with resolved conversations and no force pushes or deletion. Record the verified run and effective policy here after bootstrap.
+The owner published signed commit `47d1813b15b820a391ef5e47beec1093ba32dd86`; GitHub verified its signature. The [initial Academy CI run](https://github.com/Klaus-Gregersen/kglab-academy/actions/runs/39011209833) passed the secret guard, formatting, unit tests, build, HTTP checks, browser checks, dependency audit, and container build. The final container startup check failed because `/app/server/start.ts` was missing from the image: the multi-source Docker COPY destination lacked its directory slash.
+
+The local correction makes `server/` an explicit directory and checks the entry point and runtime imports during the image build. It still needs a signed commit/push and a successful GitHub CI run.
+
+After that successful run, activate the prepared policy requiring pull requests and passing Academy checks on main, with resolved conversations and no force pushes or deletion. The original history-protection ruleset remains active in the meantime. The PR/check policy is not yet enabled.
 
 Public hosting remains a separate operation. Follow [public hosting requirements](public-hosting.md) for image scanning, HTTPS/proxy configuration, network isolation, durable storage, backup/restore, resource limits, and monitoring. Use GitHub-hosted CI for untrusted contributions; keep lab credentials out of the application repository and its pull-request jobs. Anonymous votes are not verified individual people.
