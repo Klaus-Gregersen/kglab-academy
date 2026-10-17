@@ -1,0 +1,35 @@
+# Prepared standalone deployment. This file does not change the existing homelab.
+services:
+  academy:
+    build:
+      context: ..
+      target: production
+    environment:
+      KGLAB_PUBLIC_ORIGIN: ${KGLAB_PUBLIC_ORIGIN:?Set the public HTTPS origin}
+      KGLAB_TRUSTED_PROXIES: ${KGLAB_TRUSTED_PROXIES:-}
+      KGLAB_CLIENT_IP_HEADER: ${KGLAB_CLIENT_IP_HEADER:-x-real-ip}
+    ports:
+      - '127.0.0.1:8080:8080'
+    volumes:
+      - academy-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    restart: unless-stopped
+    networks: [academy-private]
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+volumes:
+  academy-data:
+networks:
+  academy-private:
+    internal: true

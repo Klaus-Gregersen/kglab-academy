@@ -1,0 +1,49 @@
+name: Academy CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: academy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  academy-checks:
+    name: Academy checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6, verified 2026-10-16
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6, verified 2026-10-16
+        with:
+          node-version: '24'
+      - run: node scripts/check-secrets.mjs
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4, verified 2026-10-16
+        with:
+          version: 11.25.0
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm test:server
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - run: pnpm audit --audit-level=moderate --fetch-retries=0 --fetch-timeout=15000
+      - name: Build production container
+        run: docker build -t kglab-academy:ci .
+      - name: Check constrained container startup
+        shell: bash
+        run: |
+          docker run --detach --name academy-ci --read-only --cap-drop ALL --security-opt no-new-privileges:true --memory=256m --cpus=0.5 --pids-limit=64 --tmpfs /app/data:rw,noexec,nosuid,size=80m,uid=1000,gid=1000 -p 127.0.0.1:18080:8080 -e KGLAB_PUBLIC_ORIGIN=https://academy.example.com kglab-academy:ci
+          trap 'docker logs academy-ci; docker rm -f academy-ci' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent -H 'Host: academy.example.com' http://127.0.0.1:18080/healthz; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
