@@ -1,4 +1,4 @@
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS build
+FROM node:25-alpine@sha256:bdf2cca6fe3dabd014ea60163eca3f0f7015fbd5c7ee1b0e9ccb4ced6eb02ef4 AS build
 WORKDIR /app
 RUN npm install --global pnpm@11.25.0
 COPY package.json pnpm-lock.yaml ./
@@ -12,7 +12,7 @@ COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 8080
 
 # Default runtime serves the same frontend plus shared community voting.
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS production
+FROM node:25-alpine@sha256:bdf2cca6fe3dabd014ea60163eca3f0f7015fbd5c7ee1b0e9ccb4ced6eb02ef4 AS production
 WORKDIR /app
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=8080 KGLAB_VOTES_DB=/app/data/community.sqlite
 COPY --from=build --chown=node:node /app/package.json ./package.json
