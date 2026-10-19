@@ -100,7 +100,7 @@ jobs:
             echo "Commit-tagged image: \`$image:$GITHUB_SHA\`"
             echo 'Published repository digest:'
             docker image inspect "$image:$GITHUB_SHA" --format '{{join .RepoDigests "\n"}}'
-            echo 'Use the digest in homelab-gitops after reviewing this release.'
+            echo 'Use the digest in your GitOps configuration after reviewing this release.'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Remove registry login
         if: always()

@@ -1,18 +1,18 @@
-# Deploying Academy on the existing homelab
+# Deploying Academy on k3s
 
-This is the staged deployment guide for `academy.kglab.dk`. Source preparation is not a claim that the app is deployed. The operator runs cluster commands and signs commits; no access to a password manager is needed by the coding agent.
+This guide describes the deployment prerequisites and verification steps for Academy. `academy.example.com` is a placeholder for the public hostname chosen by the operator. Prepared source files do not establish that publication or deployment has succeeded.
 
-## Confirmed starting point
+## Prerequisites
 
-The operator's read-only output confirmed one `amd64` node named `homelab`, Ready on K3s `v1.36.4+k3s1`. Snapshots showed 6–8% CPU and 56% memory usage, approximately 3.8 GiB available system memory, and 74 GiB free on the root filesystem. These snapshots indicate room for a small launch, not a load-test result.
+Before preparing manifests, the operator should privately verify:
 
-- Traefik serves the existing website at `kglab.dk` in namespace `default`.
-- `local-path` is the default StorageClass, with `WaitForFirstConsumer`, reclaim policy `Delete`, and no volume expansion.
-- Argo CD applications `website` and `observability` are Synced and Healthy.
-- The website application uses project `default`, repository `git@github.com:Klaus-Gregersen/homelab-gitops.git`, revision `main`, and path `apps/website`.
-- Traefik's pod IP was `10.42.0.61` at inspection. This is an observed, changeable address, not a permanently trusted network range.
+- Cluster health, available capacity, and compatibility with the image's CPU architecture.
+- An ingress controller and an HTTPS routing plan for the chosen hostname.
+- A StorageClass suitable for SQLite, including its reclaim policy and backup options.
+- Argo CD access to the deployment repository and the intended application namespace.
+- Support for enforcing the workload's network policies.
 
-Public traffic follows Cloudflare Tunnel on the Ubuntu host, Traefik, a Kubernetes Service, then a workload. Private administration uses Tailscale and SSH. The Academy will be a separate application beside the website, retaining the existing website deployment.
+Keep node and pod inventories, internal addresses, host capacity snapshots, administrative access paths, and credentials out of public documentation and pull requests. Use placeholders in examples; configure actual environment values in operator-managed deployment configuration with appropriate access controls. Capacity snapshots help plan a launch but do not replace a load test.
 
 ## 1. Publish a tested container
 
@@ -26,22 +26,22 @@ Registry login configuration uses a runner-temporary directory in the publishing
 
 Pin the scanner installer with its full upstream release tag, including the `v` prefix (`v0.120.1`). A bare numeric version is not that release tag and causes installer failure before any scan occurs. A scanner installation failure is a blocked check, not a vulnerability finding.
 
-The CI summary records the published image digest. Use that digest in GitOps, rather than a moving `latest` tag. This initial workflow builds `linux/amd64`, matching the confirmed server.
+The CI summary records the published image digest. Use that digest in GitOps, rather than a moving `latest` tag. This initial workflow builds `linux/amd64`; verify that the deployment target supports it.
 
-GitHub makes a new container package private by default. After the first successful publication, the owner can make this package public under its package settings. The image contains public application code, not runtime voting data or cluster credentials. Verify an unauthenticated pull from the server before deployment. This avoids creating or copying a registry credential into the Academy namespace. Keep the existing website's registry secret unchanged.
+GitHub makes a new container package private by default. After the first successful publication, the owner can make this package public under its package settings. The image contains public application code, not runtime voting data or cluster credentials. Verify an unauthenticated pull from the deployment environment before deployment. This avoids creating or copying a registry credential into the Academy namespace.
 
 References: [GHCR authentication, visibility, and digests](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry), [Anchore scan action](https://github.com/anchore/scan-action).
 
 ## 2. Deploy internally through Argo CD
 
-After publication succeeds, prepare and review a separate `apps/academy` workload in `homelab-gitops`, plus an Academy Argo CD application. Use one replica and a replacement strategy compatible with a single SQLite writer, persistent storage, non-root execution, a read-only root filesystem, no service-account token, explicit resource requests/limits, health probes with the configured Host header, and enforced network restrictions.
+After publication succeeds, prepare and review a separate Academy workload in the deployment repository, plus an Academy Argo CD application. Use one replica and a replacement strategy compatible with a single SQLite writer, persistent storage, non-root execution, a read-only root filesystem, no service-account token, explicit resource requests/limits, health probes with the configured Host header, and enforced network restrictions.
 
-Keep initial access internal until checks pass. A PVC survives pod replacement, but the observed `local-path` Delete policy can delete its backing storage when the claim is deleted. Do not delete the claim during rollback or enable automatic pruning of voting storage. Local-path capacity requests are not a substitute for checking actual disk quotas and node disk usage. Verify storage permissions and backup/restore before inviting visitors.
+Keep initial access internal until checks pass. A PVC survives pod replacement, but a StorageClass with reclaim policy `Delete` can delete its backing storage when the claim is deleted. Verify the selected policy privately. Do not delete the claim during rollback or enable automatic pruning of voting storage. For local-path storage, capacity requests are not a substitute for checking actual disk quotas and node disk usage. Verify storage permissions and backup/restore before inviting visitors.
 
 ## 3. Verify the proxy boundary and publish the route
 
-Use `https://academy.kglab.dk` as the configured public origin. Verify the actual source peer, Cloudflare visitor header, Traefik forwarding behavior, and origin access restrictions before trusting forwarded addresses. Never assume that a browser-supplied forwarding header is trustworthy. Restrict application ingress to the ingress controller and deny unnecessary outbound traffic; confirm the cluster enforces those policies.
+Set `KGLAB_PUBLIC_ORIGIN` to the chosen HTTPS origin, for example `https://academy.example.com`. Verify the actual source peer, visitor-address header, proxy forwarding behavior, and origin access restrictions before trusting forwarded addresses. Configure trusted proxy addresses only after that verification; pod addresses can change. Never assume that a browser-supplied forwarding header is trustworthy. Restrict application ingress to the ingress controller and deny unnecessary outbound traffic; confirm the cluster enforces those policies.
 
-Check static assets, course completion, Secure voting cookies, shared counts from separate browsers, request limits, storage after pod replacement, and a restore from backup. Then configure the Cloudflare hostname and Traefik route, verify HTTPS through the complete path, and add the Academy link to the personal website.
+Check static assets, course completion, Secure voting cookies, shared counts from separate browsers, request limits, storage after pod replacement, and a restore from backup. Then configure DNS and the ingress route, verify HTTPS through the complete path, and add the Academy link to the main website.
 
-Each step records what actually ran. A prepared workflow or manifest does not establish that publication, deployment, network isolation, or recovery has succeeded.
+Record verification outcomes without publishing infrastructure inventories or sensitive output. A prepared workflow or manifest does not establish that publication, deployment, network isolation, or recovery has succeeded.
