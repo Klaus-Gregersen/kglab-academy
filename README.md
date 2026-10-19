@@ -196,7 +196,9 @@ The Node server sends security headers, avoids caching personalized vote respons
 
 For a **frontend-only** deployment, `docker build --target static -t kglab-academy:static .` retains the unprivileged nginx target, or serve `dist/` from any static host. Courses, demos, and bookmarks work; without the API, the shelf shows voting as unavailable and disables voting rather than displaying fabricated counts. `deploy/nginx.conf` is for that static-only target.
 
-**No existing production infrastructure or Kubernetes manifests are modified.** Deploying into k3s, Argo CD, Traefik, or Cloudflare Tunnel remains a separate operation. The production Node server is smoke-tested locally with `pnpm test:server`; the Docker image still needs a build/smoke test in an environment with a running Docker daemon.
+Deploying into k3s, Argo CD, Traefik, or Cloudflare Tunnel is a separate operation from publishing source. The first-release Docker image built and passed its constrained startup check in GitHub CI. The [k3s deployment guide](docs/k3s-deployment.md) describes deployment prerequisites and the gates for registry publication, persistent storage, network isolation, backups, and routing. Prepared source files do not change the running cluster.
+
+The image-publishing workflow runs only after successful checks on protected main. It scans the production image, verifies constrained startup, and passes that exact image to a separate GHCR publishing job. The job uses GitHub's built-in token and creates a commit tag; the summary records the image digest for a reviewed GitOps deployment. Pull requests do not publish images, and publication does not automatically deploy the app.
 
 For the hardened container template, exact limits, trusted-proxy settings, and remaining infrastructure checks, read [public hosting requirements](docs/public-hosting.md). [Repository security](docs/repository-security.md) explains local secret checks, CI, and the two-stage main-branch policy. These source files do not deploy or activate a public service.
 
