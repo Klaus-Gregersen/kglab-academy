@@ -20,6 +20,8 @@ Review the publishing workflow in a pull request. `Academy checks` keeps a read-
 
 For successful pushes to protected `main`, CI saves the exact tested image as a one-day artifact. A separate publisher downloads that artifact with digest verification and pushes it to `ghcr.io/klaus-gregersen/kglab-academy:<commit>`. Only that main-branch job receives `packages: write`; pull requests cannot run it. The publisher uses the built-in short-lived `GITHUB_TOKEN`, without a personal token, cluster credentials, or GitOps write token. It does not rebuild the tested image or deploy the cluster.
 
+Registry login configuration uses a runner-temporary directory in the publishing and cleanup steps. The `runner` context is available in step-level environment settings, but not in job-level environment settings. Validate workflow changes with `actionlint .github/workflows/checks.yml`; YAML parsing and shell syntax checks alone do not validate GitHub's expression contexts.
+
 The CI summary records the published image digest. Use that digest in GitOps, rather than a moving `latest` tag. This initial workflow builds `linux/amd64`, matching the confirmed server.
 
 GitHub makes a new container package private by default. After the first successful publication, the owner can make this package public under its package settings. The image contains public application code, not runtime voting data or cluster credentials. Verify an unauthenticated pull from the server before deployment. This avoids creating or copying a registry credential into the Academy namespace. Keep the existing website's registry secret unchanged.
