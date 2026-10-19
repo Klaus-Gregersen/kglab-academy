@@ -18,9 +18,13 @@ Public traffic follows Cloudflare Tunnel on the Ubuntu host, Traefik, a Kubernet
 
 Review the publishing workflow in a pull request. `Academy checks` keeps a read-only token and runs the existing tests, builds the image, scans it with a pinned Grype version, and checks startup with a read-only root filesystem and resource limits. High or critical image findings block the check; a scanner error also fails the job. A passing scan only establishes that the scanner found no blocking known vulnerabilities at that point.
 
+The runtime installs pinned, patched Alpine OpenSSL/zlib packages and removes unneeded package managers after findings in the public Node base image. [The image security review](image-security.md) records the findings, correction, and remaining full-image verification requirement.
+
 For successful pushes to protected `main`, CI saves the exact tested image as a one-day artifact. A separate publisher downloads that artifact with digest verification and pushes it to `ghcr.io/klaus-gregersen/kglab-academy:<commit>`. Only that main-branch job receives `packages: write`; pull requests cannot run it. The publisher uses the built-in short-lived `GITHUB_TOKEN`, without a personal token, cluster credentials, or GitOps write token. It does not rebuild the tested image or deploy the cluster.
 
 Registry login configuration uses a runner-temporary directory in the publishing and cleanup steps. The `runner` context is available in step-level environment settings, but not in job-level environment settings. Validate workflow changes with `actionlint .github/workflows/checks.yml`; YAML parsing and shell syntax checks alone do not validate GitHub's expression contexts.
+
+Pin the scanner installer with its full upstream release tag, including the `v` prefix (`v0.120.1`). A bare numeric version is not that release tag and causes installer failure before any scan occurs. A scanner installation failure is a blocked check, not a vulnerability finding.
 
 The CI summary records the published image digest. Use that digest in GitOps, rather than a moving `latest` tag. This initial workflow builds `linux/amd64`, matching the confirmed server.
 
