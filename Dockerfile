@@ -14,6 +14,9 @@ EXPOSE 8080
 # Default runtime serves the same frontend plus shared community voting.
 FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS production
 WORKDIR /app
+LABEL org.opencontainers.image.source="https://github.com/Klaus-Gregersen/kglab-academy" \
+      org.opencontainers.image.title="KG LAB Academy" \
+      org.opencontainers.image.licenses="MIT"
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=8080 KGLAB_VOTES_DB=/app/data/community.sqlite
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/dist ./dist
