@@ -319,14 +319,3 @@ export const missions: Mission[] = definitions.map(
     },
   }),
 );
-
-export const learningPath = [
-  ['Terminal Fundamentals', 'Your first conversation with a computer.'],
-  ['Git Fundamentals', 'Track changes. Build with others.'],
-  ['Linux Fundamentals', 'Get to know the system underneath.'],
-  ['Networking Fundamentals', 'Understand how everything connects.'],
-  ['Docker Fundamentals', 'Give your applications a portable home.'],
-  ['Kubernetes Fundamentals', 'Bring your containers together.'],
-  ['GitOps with Argo CD', 'Let Git describe your homelab.'],
-  ['DevSecOps Fundamentals', 'Build security into every step.'],
-];

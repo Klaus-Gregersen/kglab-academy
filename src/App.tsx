@@ -10,7 +10,6 @@ import {
   Clock3,
   Code2,
   Command,
-  FlaskConical,
   GitBranch,
   LockKeyhole,
   Play,
@@ -26,7 +25,9 @@ import { useTerminalPreferences } from './state/useTerminalPreferences';
 import { useIdleNudge } from './state/useIdleNudge';
 import { HintLightbulb } from './components/HintLightbulb';
 import { MissionWalkthrough } from './components/MissionWalkthrough';
-import { learningPath, missions, LAUNCHPAD, type Mission } from './courses/terminal-fundamentals';
+import { missions, LAUNCHPAD, type Mission } from './courses/terminal-fundamentals';
+import { learningPath } from './courses/catalogue';
+import { AcademyPage } from './components/AcademyPage';
 import { execute } from './engine/commands';
 import { createMachine } from './engine/filesystem';
 import {
@@ -41,13 +42,21 @@ import {
 
 const REPO = 'https://github.com/Klaus-Gregersen/kglab-academy';
 
+function focusMissionBrief() {
+  document.getElementById('mission-title')?.focus({ preventScroll: true });
+  document.getElementById('mission-brief')?.scrollIntoView({ block: 'start', behavior: 'instant' });
+}
+
 export default function App() {
   const [progress, setProgress] = useState(() => loadProgress(browserStorage()));
   const currentProgress = useRef(progress);
-  type View = 'home' | 'lab' | 'community';
+  type View = 'home' | 'lab' | 'community' | 'academy';
   function hashView(): View {
+    if (window.location.hash === '#academy') return 'academy';
+    if (window.location.hash === '#workspace') return 'lab';
     if (['#community', '#share-resource'].includes(window.location.hash)) return 'community';
     if (['#main', '#learning-path', '#open-source'].includes(window.location.hash)) return 'home';
+    if (currentProgress.current.completed.length === missions.length) return 'academy';
     return currentProgress.current.started ? 'lab' : 'home';
   }
   const [view, setView] = useState<View>(hashView);
@@ -61,6 +70,10 @@ export default function App() {
   useEffect(() => {
     const target = document.getElementById(window.location.hash.slice(1));
     target?.scrollIntoView({ block: 'start' });
+    if (view === 'academy') {
+      document.getElementById('academy-title')?.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
   }, [view]);
   const [preview, setPreview] = useState(createMachine);
   const [hint, setHint] = useState(0);
@@ -75,6 +88,27 @@ export default function App() {
   const complete = progress.completed.includes(mission.id);
   const finished = progress.completed.length === missions.length;
   const percent = Math.round((progress.completed.length / missions.length) * 100);
+  useEffect(() => {
+    if (view !== 'lab') return;
+    // Workspace entry has its own reading position, including after a reload.
+    const previousRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = 'manual';
+    return () => {
+      window.history.scrollRestoration = previousRestoration;
+    };
+  }, [view]);
+  useEffect(() => {
+    if (view !== 'lab') return;
+    focusMissionBrief();
+    // Lazy terminal styles can change the initial layout after reload. Keep the reading
+    // position stable only while the mission heading still has the learner's focus.
+    const title = document.getElementById('mission-title');
+    const observer = new ResizeObserver(() => {
+      if (document.activeElement === title) focusMissionBrief();
+    });
+    if (workspace.current) observer.observe(workspace.current);
+    return () => observer.disconnect();
+  }, [view, progress.current, resetCount]);
   const nudged = useIdleNudge({
     enabled:
       view === 'lab' &&
@@ -97,23 +131,31 @@ export default function App() {
     update({ ...currentProgress.current, started: true });
     setView('lab');
     window.location.hash = 'workspace';
-    setTimeout(() => {
-      document.getElementById('mission-title')?.focus();
-      document.getElementById('workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 0);
+    if (view === 'lab') focusMissionBrief();
+  }
+  function openAcademy() {
+    setView('academy');
+    window.location.hash = 'academy';
   }
   function nextMission() {
     update(advance(currentProgress.current));
     setHint(0);
     setFeedback('');
-    setTimeout(() => document.getElementById('mission-command')?.focus(), 0);
   }
 
   return (
     <>
       <a
         className="skip-link"
-        href={view === 'lab' ? '#workspace' : view === 'community' ? '#community' : '#main'}
+        href={
+          view === 'lab'
+            ? '#workspace'
+            : view === 'community'
+              ? '#community'
+              : view === 'academy'
+                ? '#academy'
+                : '#main'
+        }
       >
         Skip to content
       </a>
@@ -146,6 +188,14 @@ export default function App() {
               Our philosophy
             </a>
             <a
+              className="academy-nav"
+              href="#academy"
+              aria-current={view === 'academy' ? 'page' : undefined}
+              onClick={openAcademy}
+            >
+              Academy
+            </a>
+            <a
               className="community-nav"
               href="#community"
               aria-current={view === 'community' ? 'page' : undefined}
@@ -165,8 +215,8 @@ export default function App() {
               <ArrowUpRight size={13} />
             </a>
           </nav>
-          <button className="header-start" onClick={start}>
-            {progress.started ? 'My workspace' : 'Enter the lab'}
+          <button className="header-start" onClick={finished ? openAcademy : start}>
+            {finished ? 'My academy' : progress.started ? 'My workspace' : 'Enter the lab'}
             <ArrowUpRight size={15} />
           </button>
         </div>
@@ -179,7 +229,15 @@ export default function App() {
         </div>
       )}
 
-      {view === 'community' ? (
+      {view === 'academy' ? (
+        <AcademyPage
+          completed={progress.completed.length}
+          total={missions.length}
+          started={progress.started}
+          saved={!storageFailed}
+          onTerminal={start}
+        />
+      ) : view === 'community' ? (
         <CommunityPage />
       ) : view === 'home' ? (
         <main id="main">
@@ -208,8 +266,12 @@ export default function App() {
                 challenges.
               </p>
               <div className="hero-actions">
-                <button className="button-primary" onClick={start}>
-                  {progress.started ? 'Continue your mission' : 'Start your first mission'}
+                <button className="button-primary" onClick={finished ? openAcademy : start}>
+                  {finished
+                    ? 'Explore your academy'
+                    : progress.started
+                      ? 'Continue your mission'
+                      : 'Start your first mission'}
                   <ArrowRight size={17} />
                 </button>
                 <a className="text-link" href="#learning-path">
@@ -297,7 +359,9 @@ export default function App() {
                 <h2>One command. A whole new world.</h2>
                 <p>Start small. Connect the dots. Build your own virtual homelab.</p>
               </div>
-              <span className="path-note">8 chapters. One continuous journey.</span>
+              <span className="path-note">
+                {learningPath.length} chapters. One continuous journey.
+              </span>
             </div>
             <div className="course-list">
               {learningPath.map(([title, description], i) => (
@@ -322,8 +386,12 @@ export default function App() {
                         <Clock3 size={14} />
                         20–30 min · {missions.length} missions
                       </span>
-                      <button className="course-start" onClick={start}>
-                        {finished ? 'Completed' : progress.started ? 'Continue' : 'Start learning'}
+                      <button className="course-start" onClick={finished ? openAcademy : start}>
+                        {finished
+                          ? 'Academy unlocked'
+                          : progress.started
+                            ? 'Continue'
+                            : 'Start learning'}
                         <ArrowRight size={16} />
                       </button>
                     </>
@@ -448,11 +516,11 @@ export default function App() {
               </button>
             </aside>
             <div className="mission-workspace">
-              <section className="mission-brief">
+              <section id="mission-brief" className="mission-brief" aria-labelledby="mission-title">
                 <div className="mission-kicker">
                   <span>MISSION {String(progress.current + 1).padStart(3, '0')}</span>
                   <span>
-                    <FlaskConical size={13} /> Hands-on challenge
+                    <BookOpen size={14} /> Start here
                   </span>
                 </div>
                 <h2 id="mission-title" tabIndex={-1}>
@@ -484,6 +552,10 @@ export default function App() {
                     </span>
                   </span>
                 </button>
+                <p className="mission-practice-cue">
+                  <TerminalSquare size={14} aria-hidden="true" />
+                  Read the goal. Then try it in the terminal below.
+                </p>
               </section>
               {mission.id === 'build-your-launchpad' && (
                 <ul className="challenge-checklist" aria-label="Project checklist">
@@ -544,7 +616,7 @@ export default function App() {
                     {finished && (
                       <p>
                         You’ve completed all {missions.length} missions. Keep experimenting in your
-                        sandbox, or explore what’s coming next.
+                        sandbox, or step through the gate into your Academy.
                       </p>
                     )}
                   </div>
@@ -554,18 +626,8 @@ export default function App() {
                       <ArrowRight size={16} />
                     </button>
                   ) : (
-                    <button
-                      className="button-primary"
-                      onClick={() => {
-                        setView('home');
-                        window.location.hash = 'learning-path';
-                        setTimeout(
-                          () => document.getElementById('learning-path')?.scrollIntoView(),
-                          0,
-                        );
-                      }}
-                    >
-                      Explore the path
+                    <button className="button-primary" onClick={openAcademy}>
+                      Unlock your academy
                       <ArrowRight size={16} />
                     </button>
                   )}
@@ -665,7 +727,6 @@ export default function App() {
             setHint(0);
             setFeedback('');
             setResetOpen(false);
-            setTimeout(() => document.getElementById('mission-command')?.focus(), 0);
           }}
         />
       )}
