@@ -48,6 +48,9 @@ test('playground, all seven missions, refresh, completion, and reset', async ({ 
   await command(page, 'cat notes.txt');
   await page.getByRole('button', { name: 'Next mission' }).click();
   await expect(page.getByRole('heading', { name: 'Build Your Launchpad' })).toBeVisible();
+  await page
+    .locator('#mission-brief')
+    .screenshot({ path: test.info().outputPath('final-mission-brief.png') });
   await command(page, 'cd ~/projects');
   await command(page, 'mkdir launchpad');
   await command(page, 'cd launchpad');
@@ -55,6 +58,26 @@ test('playground, all seven missions, refresh, completion, and reset', async ({ 
   await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '86');
   await command(page, 'pwd');
   await expect(page.getByText('Your first terminal, conquered.')).toBeVisible();
+  await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100');
+  await page.getByRole('button', { name: 'Unlock your academy' }).click();
+  await expect(page).toHaveURL(/#academy$/);
+  await expect(page.getByRole('heading', { name: 'You’re through the gate.' })).toBeFocused();
+  await expect(page.getByRole('heading', { name: 'AI Fundamentals', exact: true })).toBeVisible();
+  await expect(page.locator('.academy-course-card')).toHaveCount(8);
+  await expect(page.locator('.academy-course-card .planned-tag')).toHaveCount(8);
+  await page.screenshot({ path: test.info().outputPath('academy-unlocked.png'), fullPage: true });
+  await expect(page.getByRole('link', { name: 'Find free learning material' })).toHaveAttribute(
+    'href',
+    '#community',
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'You’re through the gate.' })).toBeVisible();
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'You’re through the gate.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Revisit your terminal' }).click();
   await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100');
   await page.getByRole('button', { name: 'Reset course progress' }).click();
   await expect(page.getByRole('button', { name: 'Keep learning' })).toBeFocused();
@@ -70,7 +93,34 @@ test('playground, all seven missions, refresh, completion, and reset', async ({ 
   await expect(page.getByRole('heading', { name: 'Where Am I?' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+  await page.goto('/#academy');
+  await expect(
+    page.getByRole('heading', { name: 'A little practice opens the gate.' }),
+  ).toBeVisible();
+  await expect(page.locator('.academy-course-card')).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+test('the academy requires all intro missions, including when opened directly', async ({
+  page,
+}) => {
+  await page.goto('/#academy');
+  await expect(
+    page.getByRole('heading', { name: 'A little practice opens the gate.' }),
+  ).toBeVisible();
+  await expect(page.getByText('0 / 7 missions complete')).toBeVisible();
+  await expect(page.locator('.academy-course-card')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Start the intro' }).click();
+  await command(page, 'pwd');
+  await page.getByRole('link', { name: 'Academy', exact: true }).click();
+  await expect(page.getByText('1 / 7 missions complete')).toBeVisible();
+  await expect(page.locator('.academy-course-card')).toHaveCount(0);
+  await page.reload();
+  await page.getByRole('button', { name: 'Continue the intro' }).click();
+  await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '14');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
 });
 
 test('keyboard history, save recovery, and responsive layout', async ({ page }) => {

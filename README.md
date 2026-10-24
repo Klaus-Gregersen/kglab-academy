@@ -11,8 +11,12 @@ A free, terminal-first learning lab for curious beginners. Learn practical devel
 - A reusable mission engine that validates filesystem outcomes or successful observation commands. Relative and absolute paths work.
 - Browser-local progress **and filesystem** persistence, optional hints, explicit next-mission controls, and a reset confirmation.
 - A highlighted command input, command/path Tab completion, command history, contextual terminal tips, live output announcements, reduced-motion support, and mobile layouts.
+- A framed mission brief with a “Start here” cue. Entering, resuming, resetting, or advancing a mission scrolls to its description and focuses its heading before practice. Typing commands does not pull focus away from the terminal.
 - A community shelf of free external learning resources, with category/search filters, shared upvotes, community ranking, and browser-local favorites.
-- A preview of seven future courses. These are clearly marked **planned**; they are not implemented.
+- An Academy course hub unlocked by completing all seven Terminal Fundamentals missions. Returning graduates land in the hub, with a route back to their terminal.
+- A preview of eight future courses, including AI Fundamentals. These are clearly marked **planned**; they are not implemented.
+
+The terminal introduction is the Academy’s only completion prerequisite. The course hub at `#academy` stays behind that introduction; the public homepage still previews the roadmap and the community shelf remains openly accessible. See [the course hub guide](docs/course-hub.md) for navigation, completion, and course catalogue details.
 
 The terminal playground is separate from the course workspace. Its state lasts until the page reloads; course state is saved on this browser and origin. Closing the tab, then reopening the same origin resumes the course. Different domains or ports have different saves. Terminal scrollback, drafts, and command history are session-only; they survive mission transitions and navigation within the app, but clear on reload or course reset. If browser storage is blocked or full, a visible notice explains that progress cannot be saved.
 
