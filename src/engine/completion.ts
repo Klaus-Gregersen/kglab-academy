@@ -65,7 +65,12 @@ function encode(value: string, original: string) {
   return value.replace(/[\s\\'"|&;<>`$]/g, '\\$&');
 }
 
-export function completeCommand(machine: Machine, line: string, caret = line.length): Completion {
+export function completeCommand(
+  machine: Machine,
+  line: string,
+  caret = line.length,
+  names = COMMAND_NAMES,
+): Completion {
   const cursor = Math.max(0, Math.min(caret, line.length));
   const empty: Completion = {
     line,
@@ -84,10 +89,12 @@ export function completeCommand(machine: Machine, line: string, caret = line.len
   }
   let matches: { value: string; directory: boolean }[];
   if (!before.length) {
-    matches = COMMAND_NAMES.filter((name) => name.startsWith(token.value)).map((value) => ({
-      value,
-      directory: false,
-    }));
+    matches = names
+      .filter((name) => name.startsWith(token.value))
+      .map((value) => ({
+        value,
+        directory: false,
+      }));
   } else {
     if (!['ls', 'cd', 'mkdir', 'touch', 'cat'].includes(before[0]) || token.value.startsWith('-'))
       return empty;

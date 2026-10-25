@@ -14,9 +14,12 @@ A free, terminal-first learning lab for curious beginners. Learn practical devel
 - A framed mission brief with a “Start here” cue. Entering, resuming, resetting, or advancing a mission scrolls to its description and focuses its heading before practice. Typing commands does not pull focus away from the terminal.
 - A community shelf of free external learning resources, with category/search filters, shared upvotes, community ranking, and browser-local favorites.
 - An Academy course hub unlocked by completing all seven Terminal Fundamentals missions. Returning graduates land in the hub, with a route back to their terminal.
-- A preview of eight future courses, including AI Fundamentals. These are clearly marked **planned**; they are not implemented.
+- **Git Fundamentals**: four interactive introductory lessons covering status, staging, commits, and branches in a simulated local repository.
+- **AI Fundamentals**: four introductory activities covering model/application/agent roles, evidence-based prompt structure, tool permissions, and local/on-premises/cloud hosting choices. Prepared examples; no live inference or API key.
+- A terminal course browser: begin with `ls`, explore folders with `cd`, read descriptions with `cat README.md`, then explicitly start an available course. Tab completion, command history, and clickable browsing work on mobile too.
+- Six future courses remain clearly marked **planned**; they are not implemented.
 
-The terminal introduction is the Academy’s only completion prerequisite. The course hub at `#academy` stays behind that introduction; the public homepage still previews the roadmap and the community shelf remains openly accessible. See [the course hub guide](docs/course-hub.md) for navigation, completion, and course catalogue details.
+The terminal introduction is the Academy’s only completion prerequisite. The terminal course hub at `#academy` and the new course routes stay behind that introduction; the public homepage still previews the roadmap and the community shelf remains openly accessible. See [the course hub guide](docs/course-hub.md) for navigation and [the new course guide](docs/introductory-courses.md) for content, progress, and simulation limits.
 
 The terminal playground is separate from the course workspace. Its state lasts until the page reloads; course state is saved on this browser and origin. Closing the tab, then reopening the same origin resumes the course. Different domains or ports have different saves. Terminal scrollback, drafts, and command history are session-only; they survive mission transitions and navigation within the app, but clear on reload or course reset. If browser storage is blocked or full, a visible notice explains that progress cannot be saved.
 
@@ -122,7 +125,7 @@ The first six lessons introduce their command and meaning before asking the lear
 
 Click the **Your objective / Watch it first** area to open a short walkthrough of the whole current mission. The terminal types each command, indicates Enter, shows its output, and explains the result. Multi-step demonstrations include checking the result with `pwd` or `ls`; silent commands such as `mkdir` and `touch` are explained explicitly.
 
-- Completed missions have **Revisit** buttons in the progress list. These open their explanation and demonstration without changing the current mission, files, progress, or draft. **Back to practice** returns to the current task.
+- Completed missions have **Revisit** buttons in the progress list. These open the actual exercise in **Practice mode**, with fresh files appropriate to that mission. Commands and validation work again; the saved course, completion, draft, and history are preserved. **Return to your course** restores that workspace. Reopening a completed course from the Academy starts practice at the first lesson. See [mission practice](docs/mission-practice.md).
 - Pause/resume, replay, a readable step-by-step transcript, and **Try it myself** are available. Watching is optional and never gates practice.
 - Demonstrations use `buildWalkthrough(mission)`, the real simulated command interpreter, and an independent starting fixture. They never call progress persistence or write to the learner's workspace, draft, history, or completion state. Learner-created extra files may make their own listings longer than the example.
 - **Try it myself** returns focus to the command input. Closing with Escape or the close button returns focus to the objective. The native modal handles keyboard focus while open.

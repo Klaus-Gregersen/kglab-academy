@@ -26,10 +26,14 @@ import { useIdleNudge } from './state/useIdleNudge';
 import { HintLightbulb } from './components/HintLightbulb';
 import { MissionWalkthrough } from './components/MissionWalkthrough';
 import { missions, LAUNCHPAD, type Mission } from './courses/terminal-fundamentals';
-import { learningPath } from './courses/catalogue';
+import { courses } from './courses/catalogue';
+import { findShortCourse, shortCourses } from './courses/short-courses';
 import { AcademyPage } from './components/AcademyPage';
+import { CourseWorkspace } from './components/CourseWorkspace';
+import { createAcademySession } from './engine/academy';
 import { execute } from './engine/commands';
 import { createMachine } from './engine/filesystem';
+import { applyPracticeResult, freshPractice, type Practice } from './state/practice';
 import {
   advance,
   applyResult,
@@ -50,8 +54,20 @@ function focusMissionBrief() {
 export default function App() {
   const [progress, setProgress] = useState(() => loadProgress(browserStorage()));
   const currentProgress = useRef(progress);
-  type View = 'home' | 'lab' | 'community' | 'academy';
+  const [courseId, setCourseId] = useState(() =>
+    window.location.hash.startsWith('#course/')
+      ? window.location.hash.slice(8)
+      : shortCourses[0].id,
+  );
+  const [academySession] = useState(createAcademySession);
+  const activeCourse = findShortCourse(courseId) ?? shortCourses[0];
+  type View = 'home' | 'lab' | 'community' | 'academy' | 'course';
   function hashView(): View {
+    if (window.location.hash.startsWith('#course/'))
+      return currentProgress.current.completed.length === missions.length &&
+        findShortCourse(window.location.hash.slice(8))
+        ? 'course'
+        : 'academy';
     if (window.location.hash === '#academy') return 'academy';
     if (window.location.hash === '#workspace') return 'lab';
     if (['#community', '#share-resource'].includes(window.location.hash)) return 'community';
@@ -61,9 +77,20 @@ export default function App() {
   }
   const [view, setView] = useState<View>(hashView);
   const [terminalMemory, setTerminalMemory] = useState(createTerminalMemory);
+  const [practice, setPractice] = useState<Practice | null>(null);
+  const currentPractice = useRef(practice);
+  const [practiceMemory, setPracticeMemory] = useState(createTerminalMemory);
+  const [practiceVisit, setPracticeVisit] = useState(0);
   const [previewMemory] = useState(createTerminalMemory);
   useEffect(() => {
-    const navigate = () => setView(hashView());
+    const navigate = () => {
+      if (
+        window.location.hash.startsWith('#course/') &&
+        findShortCourse(window.location.hash.slice(8))
+      )
+        setCourseId(window.location.hash.slice(8));
+      setView(hashView());
+    };
     window.addEventListener('hashchange', navigate);
     return () => window.removeEventListener('hashchange', navigate);
   }, []);
@@ -84,8 +111,10 @@ export default function App() {
   const [walkthrough, setWalkthrough] = useState<Mission | null>(null);
   const workspace = useRef<HTMLElement>(null);
   const { preferences, changePreferences, preferencesSaved } = useTerminalPreferences();
-  const mission = missions[progress.current];
-  const complete = progress.completed.includes(mission.id);
+  const missionIndex = practice?.missionIndex ?? progress.current;
+  const mission = missions[missionIndex];
+  const machine = practice?.machine ?? progress.machine;
+  const complete = practice ? practice.complete : progress.completed.includes(mission.id);
   const finished = progress.completed.length === missions.length;
   const percent = Math.round((progress.completed.length / missions.length) * 100);
   useEffect(() => {
@@ -108,7 +137,7 @@ export default function App() {
     });
     if (workspace.current) observer.observe(workspace.current);
     return () => observer.disconnect();
-  }, [view, progress.current, resetCount]);
+  }, [view, missionIndex, practiceVisit, resetCount]);
   const nudged = useIdleNudge({
     enabled:
       view === 'lab' &&
@@ -117,7 +146,7 @@ export default function App() {
       hint === 0 &&
       preferences.hints &&
       preferences.nudges,
-    session: `${progress.current}-${resetCount}`,
+    session: `${missionIndex}-${resetCount}-${practiceVisit}`,
     delay: preferences.nudgeDelay * 1000,
     scope: workspace,
   });
@@ -128,14 +157,53 @@ export default function App() {
     setStorageFailed(!saveProgress(next, browserStorage()));
   }
   function start() {
+    if (currentProgress.current.completed.length === missions.length) {
+      beginPractice(0);
+      return;
+    }
+    leavePractice();
     update({ ...currentProgress.current, started: true });
     setView('lab');
     window.location.hash = 'workspace';
     if (view === 'lab') focusMissionBrief();
   }
+  function beginPractice(index: number) {
+    if (!currentProgress.current.completed.includes(missions[index]?.id)) return;
+    const next = freshPractice(index);
+    currentPractice.current = next;
+    setPractice(next);
+    setPracticeMemory(createTerminalMemory());
+    setPracticeVisit((n) => n + 1);
+    setHint(0);
+    setFeedback('');
+    setWalkthrough(null);
+    setView('lab');
+    window.location.hash = 'workspace';
+  }
+  function leavePractice() {
+    currentPractice.current = null;
+    setPractice(null);
+    setPracticeVisit((n) => n + 1);
+    setHint(0);
+    setFeedback('');
+  }
   function openAcademy() {
     setView('academy');
     window.location.hash = 'academy';
+  }
+  function openCourse(id: string) {
+    if (currentProgress.current.completed.length !== missions.length) {
+      openAcademy();
+      return;
+    }
+    if (id === 'terminal-fundamentals') {
+      beginPractice(0);
+      return;
+    }
+    if (!findShortCourse(id)) return;
+    setCourseId(id);
+    setView('course');
+    window.location.hash = `course/${id}`;
   }
   function nextMission() {
     update(advance(currentProgress.current));
@@ -147,6 +215,15 @@ export default function App() {
     <>
       <a
         className="skip-link"
+        onClick={(event) => {
+          if (view === 'course') {
+            event.preventDefault();
+            document.getElementById('course-lesson-title')?.focus({ preventScroll: true });
+            document
+              .getElementById('course-brief')
+              ?.scrollIntoView({ block: 'start', behavior: 'instant' });
+          }
+        }}
         href={
           view === 'lab'
             ? '#workspace'
@@ -154,7 +231,9 @@ export default function App() {
               ? '#community'
               : view === 'academy'
                 ? '#academy'
-                : '#main'
+                : view === 'course'
+                  ? '#course'
+                  : '#main'
         }
       >
         Skip to content
@@ -190,7 +269,7 @@ export default function App() {
             <a
               className="academy-nav"
               href="#academy"
-              aria-current={view === 'academy' ? 'page' : undefined}
+              aria-current={view === 'academy' || view === 'course' ? 'page' : undefined}
               onClick={openAcademy}
             >
               Academy
@@ -229,13 +308,17 @@ export default function App() {
         </div>
       )}
 
-      {view === 'academy' ? (
+      {view === 'course' && finished ? (
+        <CourseWorkspace key={activeCourse.id} course={activeCourse} onBack={openAcademy} />
+      ) : view === 'academy' ? (
         <AcademyPage
           completed={progress.completed.length}
           total={missions.length}
           started={progress.started}
           saved={!storageFailed}
           onTerminal={start}
+          session={academySession}
+          onOpen={openCourse}
         />
       ) : view === 'community' ? (
         <CommunityPage />
@@ -359,13 +442,11 @@ export default function App() {
                 <h2>One command. A whole new world.</h2>
                 <p>Start small. Connect the dots. Build your own virtual homelab.</p>
               </div>
-              <span className="path-note">
-                {learningPath.length} chapters. One continuous journey.
-              </span>
+              <span className="path-note">{courses.length} chapters. One continuous journey.</span>
             </div>
             <div className="course-list">
-              {learningPath.map(([title, description], i) => (
-                <div className={`course-row ${i === 0 ? 'available' : ''}`} key={title}>
+              {courses.map(({ id, title, description, status }, i) => (
+                <div className={`course-row ${status === 'available' ? 'available' : ''}`} key={id}>
                   <span className="course-number">{String(i + 1).padStart(3, '0')}</span>
                   <span className="course-icon">
                     {i === 0 ? (
@@ -395,6 +476,14 @@ export default function App() {
                         <ArrowRight size={16} />
                       </button>
                     </>
+                  ) : status === 'available' ? (
+                    finished ? (
+                      <button className="course-start" onClick={() => openCourse(id)}>
+                        Start learning <ArrowRight size={16} />
+                      </button>
+                    ) : (
+                      <span className="planned-tag">Available after intro</span>
+                    )
                   ) : (
                     <span className="planned-tag">Planned</span>
                   )}
@@ -432,7 +521,11 @@ export default function App() {
             <span>Terminal Fundamentals</span>
             <span className="workspace-saved">
               <span className="status-dot" />
-              {storageFailed ? 'Session only' : 'Saved on this device'}
+              {practice
+                ? 'Practice · session only'
+                : storageFailed
+                  ? 'Session only'
+                  : 'Saved on this device'}
             </span>
           </div>
           <div className="workspace-heading">
@@ -473,8 +566,8 @@ export default function App() {
                 {missions.map((item, i) => (
                   <li
                     key={item.id}
-                    className={`${i === progress.current ? 'current' : ''} ${progress.completed.includes(item.id) ? 'done' : ''}`}
-                    aria-current={i === progress.current ? 'step' : undefined}
+                    className={`${i === missionIndex ? 'current' : ''} ${progress.completed.includes(item.id) ? 'done' : ''}`}
+                    aria-current={i === missionIndex ? 'step' : undefined}
                   >
                     <span className="mission-step">
                       {progress.completed.includes(item.id) ? (
@@ -488,11 +581,10 @@ export default function App() {
                         className="mission-revisit"
                         type="button"
                         aria-label={`Revisit ${item.title}`}
-                        aria-haspopup="dialog"
-                        onClick={() => setWalkthrough(item)}
+                        onClick={() => beginPractice(i)}
                       >
                         <span>{item.title}</span>
-                        <Play size={12} />
+                        <RotateCcw size={12} />
                       </button>
                     ) : (
                       <span>{item.title}</span>
@@ -504,7 +596,7 @@ export default function App() {
               <div className="sidebar-footnote">
                 <ShieldCheck size={18} />
                 <p>
-                  Completed missions can be revisited.
+                  Choose a completed mission to practice again.
                   <br />
                   A safe place to experiment.
                   <br />
@@ -518,11 +610,22 @@ export default function App() {
             <div className="mission-workspace">
               <section id="mission-brief" className="mission-brief" aria-labelledby="mission-title">
                 <div className="mission-kicker">
-                  <span>MISSION {String(progress.current + 1).padStart(3, '0')}</span>
+                  <span>MISSION {String(missionIndex + 1).padStart(3, '0')}</span>
                   <span>
                     <BookOpen size={14} /> Start here
                   </span>
                 </div>
+                {practice && (
+                  <div className="practice-banner" role="region" aria-label="Mission practice">
+                    <div>
+                      <strong>Practice mode</strong>
+                      <p>Your course completion and saved workspace stay unchanged.</p>
+                    </div>
+                    <button type="button" className="text-link" onClick={leavePractice}>
+                      Return to your course <ArrowRight size={14} />
+                    </button>
+                  </div>
+                )}
                 <h2 id="mission-title" tabIndex={-1}>
                   {mission.title}
                 </h2>
@@ -561,11 +664,11 @@ export default function App() {
                 <ul className="challenge-checklist" aria-label="Project checklist">
                   {[
                     {
-                      done: progress.machine.nodes[LAUNCHPAD]?.kind === 'directory',
+                      done: machine.nodes[LAUNCHPAD]?.kind === 'directory',
                       label: 'A launchpad directory inside projects',
                     },
                     {
-                      done: progress.machine.nodes[`${LAUNCHPAD}/README.md`]?.kind === 'file',
+                      done: machine.nodes[`${LAUNCHPAD}/README.md`]?.kind === 'file',
                       label: 'A README.md inside launchpad',
                     },
                     { done: complete, label: 'Location checked from inside launchpad' },
@@ -586,9 +689,22 @@ export default function App() {
                 preferences={preferences}
                 onPreferencesChange={changePreferences}
                 preferencesSaved={preferencesSaved}
-                machine={progress.machine}
-                memory={terminalMemory}
+                machine={machine}
+                memory={practice ? practiceMemory : terminalMemory}
                 onRun={(line) => {
+                  const rehearsal = currentPractice.current;
+                  if (rehearsal) {
+                    const result = execute(rehearsal.machine, line);
+                    const next = applyPracticeResult(rehearsal, result);
+                    currentPractice.current = next;
+                    setPractice(next);
+                    setFeedback(
+                      result.success && line.trim() && !next.complete
+                        ? `Keep exploring. ${mission.objective}`
+                        : '',
+                    );
+                    return result;
+                  }
                   const before = currentProgress.current;
                   const result = execute(before.machine, line);
                   const next = applyResult(before, result);
@@ -608,19 +724,25 @@ export default function App() {
                   </span>
                   <div>
                     <h3>
-                      {finished
-                        ? 'Your first terminal, conquered.'
-                        : 'Mission complete. Nicely done.'}
+                      {practice
+                        ? 'Practice complete. Nicely done.'
+                        : finished
+                          ? 'Your first terminal, conquered.'
+                          : 'Mission complete. Nicely done.'}
                     </h3>
                     <p>{mission.completion}</p>
-                    {finished && (
+                    {finished && !practice && (
                       <p>
                         You’ve completed all {missions.length} missions. Keep experimenting in your
                         sandbox, or step through the gate into your Academy.
                       </p>
                     )}
                   </div>
-                  {!finished ? (
+                  {practice ? (
+                    <button className="button-primary" onClick={() => beginPractice(missionIndex)}>
+                      Practice again <RotateCcw size={16} />
+                    </button>
+                  ) : !finished ? (
                     <button className="button-primary" onClick={nextMission}>
                       Next mission
                       <ArrowRight size={16} />
@@ -721,6 +843,7 @@ export default function App() {
         <ResetDialog
           onClose={() => setResetOpen(false)}
           onReset={() => {
+            leavePractice();
             update({ ...freshProgress(), started: true });
             setResetCount((n) => n + 1);
             setTerminalMemory(createTerminalMemory());
