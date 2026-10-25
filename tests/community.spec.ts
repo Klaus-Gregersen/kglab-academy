@@ -59,10 +59,22 @@ test('navigation and completed-mission replay preserve the live workspace, draft
     localStorage.getItem('kglab:terminal-fundamentals:v1'),
   );
   await page.getByRole('button', { name: 'Revisit Where Am I?' }).click();
+  await expect(page.getByRole('region', { name: 'Mission practice' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Where Am I?', exact: true })).toBeVisible();
+  await expect(input).toHaveValue('');
+  await input.fill('pwd');
+  await input.press('Enter');
+  await expect(page.getByText('Practice complete. Nicely done.')).toBeVisible();
+  await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '14');
+  await page.getByRole('button', { name: 'Watch walkthrough for Where Am I?' }).click();
   const demo = page.getByRole('dialog', { name: 'Where Am I?' });
   await expect(demo.getByRole('button', { name: 'Back to practice' })).toBeVisible();
   await demo.press('Escape');
-  await expect(page.getByRole('button', { name: 'Revisit Where Am I?' })).toBeFocused();
+  await expect(
+    page.getByRole('button', { name: 'Watch walkthrough for Where Am I?' }),
+  ).toBeFocused();
+  await page.getByRole('button', { name: 'Return to your course' }).click();
+  await expect(page.getByRole('heading', { name: 'What’s Here?', exact: true })).toBeVisible();
   await expect(input).toHaveValue('a draft');
   expect(await page.evaluate(() => localStorage.getItem('kglab:terminal-fundamentals:v1'))).toBe(
     saveBefore,

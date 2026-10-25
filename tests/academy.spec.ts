@@ -62,11 +62,17 @@ test('playground, all seven missions, refresh, completion, and reset', async ({ 
   await page.getByRole('button', { name: 'Unlock your academy' }).click();
   await expect(page).toHaveURL(/#academy$/);
   await expect(page.getByRole('heading', { name: 'You’re through the gate.' })).toBeFocused();
-  await expect(page.getByRole('heading', { name: 'AI Fundamentals', exact: true })).toBeVisible();
-  await expect(page.locator('.academy-course-card')).toHaveCount(8);
-  await expect(page.locator('.academy-course-card .planned-tag')).toHaveCount(8);
+  await expect(page.getByRole('region', { name: 'Academy course terminal' })).toBeVisible();
+  await expect(page.getByRole('table', { name: 'Course directory' })).not.toBeVisible();
+  const academyInput = page.getByRole('textbox', { name: 'Academy command' });
+  await academyInput.fill('ls');
+  await academyInput.press('Enter');
+  await expect(page.getByRole('table', { name: 'Course directory' }).getByRole('row')).toHaveCount(
+    10,
+  );
+  await expect(page.locator('.course-state.planned')).toHaveCount(6);
   await page.screenshot({ path: test.info().outputPath('academy-unlocked.png'), fullPage: true });
-  await expect(page.getByRole('link', { name: 'Find free learning material' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Community shelf' })).toHaveAttribute(
     'href',
     '#community',
   );
