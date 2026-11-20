@@ -1,4 +1,4 @@
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS build
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS build
 WORKDIR /app
 RUN npm install --global pnpm@11.25.0
 COPY package.json pnpm-lock.yaml ./
@@ -12,7 +12,7 @@ COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 8080
 
 # Default runtime serves the same frontend plus shared community voting.
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS production
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS production
 WORKDIR /app
 LABEL org.opencontainers.image.source="https://github.com/Klaus-Gregersen/kglab-academy" \
       org.opencontainers.image.title="KG LAB Academy" \
